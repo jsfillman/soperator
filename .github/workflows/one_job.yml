@@ -80,7 +80,7 @@ jobs:
 
       - name: Build and Push Image
         run: |
-          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=${{ matrix.image_name }} DOCKERFILE=${{ matrix.image_name//_// }}.dockerfile
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=${{ matrix.image_name }} DOCKERFILE=${{ matrix.image_name }}.dockerfile
           make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=${{ matrix.image_name }}
 
   build-operator:
