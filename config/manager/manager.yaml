@@ -48,7 +48,7 @@ spec:
       #           - key: kubernetes.io/arch
       #             operator: In
       #             values:
-      #               - amd64
+      #               - arm64
       #               - arm64
       #               - ppc64le
       #               - s390x
@@ -87,7 +87,7 @@ spec:
             value: "false"
           - name: SLURM_OPERATOR_WATCH_NAMESPACES
             value: "*"
-        image: controller:1.17.0
+        image: jsfillman/controller:1.17.0
         imagePullPolicy: Always
         name: manager
         securityContext:

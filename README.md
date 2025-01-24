@@ -1,4 +1,4 @@
-# Soperator – Kubernetes Operator for Slurm
+# Soperator – A Kubernetes Operator for Slurm
 [//]: # (Badges)
 <div align="center">
 
