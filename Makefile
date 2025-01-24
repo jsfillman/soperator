@@ -1,7 +1,7 @@
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.28.0
 
-DOCKER_BUILD_PLATFORM = "--platform=linux/amd64"
+DOCKER_BUILD_PLATFORM = "--platform=linux/arm64"
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -33,7 +33,7 @@ VERSION               		= $(shell cat VERSION)
 IMAGE_VERSION		  = $(VERSION)-$(UBUNTU_VERSION)-slurm$(SLURM_VERSION)
 GO_CONST_VERSION_FILE = internal/consts/version.go
 GITHUB_REPO			  = ghcr.io/nebius/soperator
-NEBIUS_REPO			  = cr.eu-north1.nebius.cloud/soperator
+NEBIUS_REPO			  = jsfillman/soperator
 IMAGE_REPO			  = $(NEBIUS_REPO)
 
 # For version sync test
