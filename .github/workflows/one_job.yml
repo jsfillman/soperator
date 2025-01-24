@@ -44,12 +44,22 @@ jobs:
           echo "UNSTABLE - ${{ steps.set-env.outputs.unstable }}"
 
   build-and-push:
-    runs-on: ubuntu-latest
     needs: pre-build
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        platform: [linux/arm64]
+        image_name: [
+          worker_slurmd,
+          controller_slurmctld,
+          controller_slurmdbd,
+          login_sshd,
+          munge,
+          nccl_benchmark,
+          exporter,
+          slurmrestd
+        ]
+        platform: [linux/amd64, linux/arm64]
 
     steps:
       - name: Checkout repository
@@ -68,54 +78,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Debug vars
+      - name: Build and Push Image
         run: |
-          echo "UNSTABLE - is ${{ needs.pre-build.outputs.unstable }}"
-          make get-version UNSTABLE=${{ needs.pre-build.outputs.unstable }}
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=${{ matrix.image_name }} DOCKERFILE=${{ matrix.image_name//_// }}.dockerfile
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=${{ matrix.image_name }}
 
-      - name: Check if version synced
-        run: make test-version-sync
+  build-operator:
+    needs: pre-build
+    runs-on: ubuntu-latest
 
-      - name: Build and Push All Images
-        run: |
-          UNSTABLE=${{ needs.pre-build.outputs.unstable }}
-          IMAGES=(worker_slurmd controller_slurmctld controller_slurmdbd login_sshd munge nccl_benchmark exporter slurmrestd)
-          for IMAGE_NAME in "${IMAGES[@]}"; do
-            echo "Building and pushing image $IMAGE_NAME for platform ${{ matrix.platform }}"
-            docker buildx build \
-              --platform ${{ matrix.platform }} \
-              --file ./images/$IMAGE_NAME/${IMAGE_NAME//_/.}.dockerfile \
-              --tag ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:latest \
-              --tag ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME:${{ github.sha }} \
-              --push ./images/$IMAGE_NAME
-          done
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
 
-      - name: Build tarball for jail
-        run: |
-          echo "Removing previous jail rootfs tar archive"
-          rm -rf images/jail_rootfs.tar
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-          echo "Building tarball for jail"
-          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=jail DOCKERFILE=jail/jail.dockerfile DOCKER_OUTPUT="--output type=tar,dest=jail_rootfs.tar"
-          echo "Built tarball jail_rootfs.tar"
+      - name: Set up QEMU for Multi-Arch
+        uses: docker/setup-qemu-action@v3
 
-      - name: Build and Push Populate Jail Image
-        run: |
-          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=populate_jail DOCKERFILE=populate_jail/populate_jail.dockerfile
-          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=populate_jail
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push Operator Image
         run: |
           UNSTABLE=${{ needs.pre-build.outputs.unstable }}
           OPERATOR_IMAGE_TAG=$(make get-operator-tag-version UNSTABLE=${UNSTABLE})
-
-          echo "Building image of the operator"
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file Dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/slurm-operator:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/slurm-operator:${OPERATOR_IMAGE_TAG} \
-            --push .
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=slurm-operator DOCKERFILE=Dockerfile IMAGE_VERSION=${OPERATOR_IMAGE_TAG}
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=slurm-operator IMAGE_VERSION=${OPERATOR_IMAGE_TAG}
 
       - name: Release Helm Charts
         run: |
