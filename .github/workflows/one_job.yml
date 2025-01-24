@@ -14,7 +14,6 @@ on:
   pull_request:
     branches:
       - main
-      - dev
 
 permissions:
   contents: read
@@ -50,7 +49,7 @@ jobs:
 
     strategy:
       matrix:
-        platform: [linux/arm64]
+        platform: [linux/amd64, linux/arm64]
 
     steps:
       - name: Checkout repository
@@ -77,77 +76,50 @@ jobs:
       - name: Check if version synced
         run: make test-version-sync
 
+      - name: Update CRDs and Run Tests
+        run: |
+          echo "Updating CRDs & auto-generated code (included in test step) & run tests"
+          make test UNSTABLE=${{ needs.pre-build.outputs.unstable }}
+
       - name: Build and Push worker_slurmd Image
         run: |
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file ./images/worker/worker.slurmd.dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/worker_slurmd:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/worker_slurmd:${{ github.sha }} \
-            --push ./images/worker
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=worker_slurmd DOCKERFILE=worker/slurmd.dockerfile
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=worker_slurmd
 
       - name: Build and Push controller_slurmctld Image
         run: |
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file ./images/controller/controller.slurmctld.dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/controller_slurmctld:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/controller_slurmctld:${{ github.sha }} \
-            --push ./images/controller
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=controller_slurmctld DOCKERFILE=controller/slurmctld.dockerfile
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=controller_slurmctld
 
       - name: Build and Push controller_slurmdbd Image
         run: |
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file ./images/accounting/controller.slurmdbd.dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/controller_slurmdbd:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/controller_slurmdbd:${{ github.sha }} \
-            --push ./images/accounting
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=controller_slurmdbd DOCKERFILE=accounting/slurmdbd.dockerfile
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=controller_slurmdbd
 
       - name: Build and Push login_sshd Image
         run: |
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file ./images/login/login.sshd.dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/login_sshd:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/login_sshd:${{ github.sha }} \
-            --push ./images/login
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=login_sshd DOCKERFILE=login/sshd.dockerfile
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=login_sshd
 
       - name: Build and Push munge Image
         run: |
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file ./images/munge/munge.dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/munge:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/munge:${{ github.sha }} \
-            --push ./images/munge
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=munge DOCKERFILE=munge/munge.dockerfile
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=munge
 
       - name: Build and Push nccl_benchmark Image
         run: |
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file ./images/nccl_benchmark/nccl_benchmark.dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/nccl_benchmark:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/nccl_benchmark:${{ github.sha }} \
-            --push ./images/nccl_benchmark
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=nccl_benchmark DOCKERFILE=nccl_benchmark/nccl_benchmark.dockerfile
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=nccl_benchmark
 
       - name: Build and Push exporter Image
         run: |
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file ./images/exporter/exporter.dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/exporter:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/exporter:${{ github.sha }} \
-            --push ./images/exporter
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=exporter DOCKERFILE=exporter/exporter.dockerfile
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=exporter
 
       - name: Build and Push slurmrestd Image
         run: |
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file ./images/restd/slurmrestd.dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/slurmrestd:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/slurmrestd:${{ github.sha }} \
-            --push ./images/restd
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=slurmrestd DOCKERFILE=restd/slurmrestd.dockerfile
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=slurmrestd
 
       - name: Build tarball for jail
         run: |
@@ -168,13 +140,8 @@ jobs:
           UNSTABLE=${{ needs.pre-build.outputs.unstable }}
           OPERATOR_IMAGE_TAG=$(make get-operator-tag-version UNSTABLE=${UNSTABLE})
 
-          echo "Building image of the operator"
-          docker buildx build \
-            --platform ${{ matrix.platform }} \
-            --file Dockerfile \
-            --tag ghcr.io/${{ github.repository_owner }}/slurm-operator:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/slurm-operator:${OPERATOR_IMAGE_TAG} \
-            --push .
+          make docker-build UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=slurm-operator DOCKERFILE=Dockerfile IMAGE_VERSION=${OPERATOR_IMAGE_TAG}
+          make docker-push UNSTABLE=${{ needs.pre-build.outputs.unstable }} IMAGE_NAME=slurm-operator IMAGE_VERSION=${OPERATOR_IMAGE_TAG}
 
       - name: Release Helm Charts
         run: |
